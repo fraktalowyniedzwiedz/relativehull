@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Constant-Workspace Relative Hulls: First Problem</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      background: #f7f9fb;
+      color: #1f2933;
+    }
+    header {
+      background: #1e3a8a;
+      color: white;
+      padding: 2rem;
+    }
+    header h1 {
+      margin: 0 0 0.5rem 0;
+      font-size: 2rem;
+    }
+    header p {
+      margin: 0;
+      max-width: 900px;
+    }
+    main {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    section {
+      margin-bottom: 2.5rem;
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    h2 {
+      margin-top: 0;
+      color: #1e3a8a;
+    }
+    h3 {
+      color: #334155;
+    }
+    ul {
+      padding-left: 1.2rem;
+    }
+    li {
+      margin-bottom: 0.5rem;
+    }
+    .algorithm-step {
+      margin-bottom: 1rem;
+      padding-left: 1rem;
+      border-left: 3px solid #93c5fd;
+    }
+    .highlight {
+      background: #eff6ff;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: #475569;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Constant-Workspace Algorithms for Relative Hulls</h1>
+</header>
+
+<main>
+
+  <section>
+    <h2>Problem 1: Relative Hull of a Polygon Inside Another Polygon</h2>
+    <p>
+      The first problem studied in the paper is the following:
+    </p>
+    <div class="highlight">
+      <strong>Input:</strong> Two simple polygons <em>P</em> and <em>Q</em> in the plane such that <em>P ⊂ Q</em>.<br />
+      <strong>Output:</strong> A simple polygon <em>P′</em> of minimum perimeter such that
+      <em>P ⊆ P′ ⊆ Q</em>.
+    </div>
+    <p>
+      The output polygon <em>P′</em> is called the <strong>relative hull</strong> of <em>P</em> with respect to <em>Q</em>,
+      denoted <em>RH(P | Q)</em>. Intuitively, it is the shortest possible “wrapper” around <em>P</em>
+      that stays inside <em>Q</em>.
+    </p>
+  </section>
+
+  <section>
+    <h2>Key Challenges</h2>
+    <ul>
+      <li>The input polygons are read-only.</li>
+      <li>The algorithm may use only <strong>O(1) extra workspace</strong>.</li>
+      <li>Intermediate structures (like sub-polygons or visibility graphs) cannot be stored.</li>
+    </ul>
+    <p>
+      As a result, the algorithm must repeatedly <em>recompute</em> geometric information instead
+      of storing it, while still guaranteeing correctness.
+    </p>
+  </section>
+
+  <section>
+    <h2>High-Level Algorithmic Idea</h2>
+    <p>
+      The algorithm builds <em>RH(P | Q)</em> edge by edge, relying on two classical geometric tools
+      adapted to constant workspace:
+    </p>
+    <ul>
+      <li><strong>Jarvis march</strong> to enumerate edges of the convex hull <em>CH(P)</em>.</li>
+      <li>A modified <strong>constant-workspace geodesic shortest path algorithm</strong>
+          (based on Asano et al.).</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Detailed Algorithm Steps</h2>
+
+    <div class="algorithm-step">
+      <h3>Step 1: Enumerate Convex Hull Edges of P</h3>
+      <p>
+        Using Jarvis march, the algorithm enumerates edges of <em>CH(P)</em> one by one in clockwise
+        order. Jarvis march is output-sensitive and requires only constant workspace.
+      </p>
+    </div>
+
+    <div class="algorithm-step">
+      <h3>Step 2: Process Each Convex Hull Edge</h3>
+      <p>
+        For each hull edge <em>e = (p₁, p₂)</em>:
+      </p>
+      <ul>
+        <li>If <em>e</em> does <strong>not</strong> intersect the interior of <em>Q</em>, then <em>e</em>
+            is part of the relative hull and is output directly.</li>
+        <li>If <em>e</em> <strong>does</strong> intersect the interior of <em>Q</em>, then <em>e</em>
+            cuts across a region forbidden by <em>Q</em> and must be replaced.</li>
+      </ul>
+    </div>
+
+    <div class="algorithm-step">
+      <h3>Step 3: Identify the Pocket</h3>
+      <p>
+        When an edge <em>(p₁, p₂)</em> of the convex hull <em>CH(P)</em> is invalid, it is the lid of a
+        <strong>pocket</strong> of <em>P</em> inside its convex hull.
+      </p>
+
+      <h4>Definition (Pocket of P)</h4>
+      <p>
+        Let <em>e = (p₁, p₂)</em> be an edge of <em>CH(P)</em>. The <strong>pocket of P induced by e</strong>
+        is the simple polygonal region bounded by:
+      </p>
+      <ul>
+        <li>the segment <em>(p₁, p₂)</em> (called the <em>lid</em> of the pocket), and</li>
+        <li>the unique polygonal chain along the boundary of <em>P</em> connecting <em>p₁</em> to
+            <em>p₂</em> that lies strictly inside <em>CH(P)</em>.</li>
+      </ul>
+      <p>
+        Intuitively, a pocket is a maximal region where <em>P</em> deviates inward from its convex
+        hull. Every edge of <em>CH(P)</em> either coincides with an edge of <em>P</em> (and induces no
+        pocket) or serves as the lid of exactly one pocket.
+      </p>
+
+      <p>
+        In the algorithm, only pockets whose lids intersect the interior of <em>Q</em> are relevant.
+        For such a pocket, the algorithm considers the region
+        <em>P″ = pocket − interior(Q)</em>, which defines the domain for the geodesic shortest path
+        computation in Step 4.
+      </p>
+    </div>
+
+    <div class="algorithm-step">
+      <h3>Step 4: Compute a Geodesic Shortest Path</h3>
+      <p>
+        Instead of the straight edge <em>(p₁, p₂)</em>, the algorithm computes the
+        <strong>geodesic shortest path</strong> between <em>p₁</em> and <em>p₂</em> inside the polygonal
+        domain <em>P″</em>, whose boundary consists of parts of <em>P</em>, parts of <em>Q</em>, and the
+        pocket lid.
+      </p>
+
+      <h4>Geometric Setup</h4>
+      <p>
+        The region <em>P″</em> is a simple polygon (possibly with reflex vertices) but is not stored
+        explicitly. Its boundary is defined implicitly by walking along:
+      </p>
+      <ul>
+        <li>the boundary of the pocket of <em>P</em>, and</li>
+        <li>the boundary of <em>Q</em> where the pocket intersects <em>Q</em>.</li>
+      </ul>
+      <p>
+        At any moment, the algorithm can determine the <em>next</em> boundary vertex of <em>P″</em>
+        by local geometric tests, without storing the full sequence.
+      </p>
+
+      <h4>Constant-Workspace Shortest Path Method</h4>
+      <p>
+        The algorithm adapts the constant-workspace geodesic shortest path algorithm of Asano et al.
+        It maintains only:
+      </p>
+      <ul>
+        <li>the current vertex being processed,</li>
+        <li>a constant-size representation of the current <em>visibility cone</em>, and</li>
+        <li>the last vertex output on the shortest path.</li>
+      </ul>
+      <p>
+        As the boundary of <em>P″</em> is traversed, vertices are classified as visible or invisible
+        from the current apex of the path. Reflex vertices cause the visibility cone to shrink or
+        split, triggering updates to the path.
+      </p>
+
+      <h4>Incremental Construction and Output</h4>
+      <p>
+        Whenever the algorithm determines that a boundary vertex must lie on the geodesic shortest
+        path, that vertex is immediately output as part of <em>RH(P | Q)</em>. No stack or list of
+        path vertices is maintained.
+      </p>
+      <p>
+        This process continues until the target point <em>p₂</em> becomes visible, at which point
+        the final segment is output and the detour replacing the blocked hull edge is complete.
+      </p>
+    </div>
+
+    <div class="algorithm-step">
+      <h3>Step 5: Stream the Output</h3>
+      <p>
+        All edges—either original convex hull edges or segments of geodesic paths—are streamed
+        directly to the output. No part of the relative hull is stored explicitly.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Correctness and Complexity</h2>
+    <p>
+      The algorithm is correct because:
+    </p>
+    <ul>
+      <li>Every vertex of <em>CH(P)</em> must appear on <em>RH(P | Q)</em>.</li>
+      <li>Whenever a convex hull edge is blocked by <em>Q</em>, the unique shortest detour
+          inside <em>P \ Q</em> is the geodesic shortest path.</li>
+      <li>The shortest-path algorithm correctly identifies these detours using only local
+          geometric information.</li>
+    </ul>
+    <div class="highlight">
+      <strong>Time complexity:</strong> O(|P|² + |Q|²)<br />
+      <strong>Workspace:</strong> O(1)
+    </div>
+  </section>
+
+      <section>
+    <h2>Simplified Reference Implementation (Non-Constant Workspace)</h2>
+    <p>
+      Here is a simplified reference implementation</em> that does
+      <strong>not</strong> satisfy the constant-workspace restriction, but faithfully mirrors the
+      geometric structure of the algorithm described in the paper.
+    </p>
+
+    <h3>High-Level Pseudocode</h3>
+    <pre><code class="language-c++">#include <bits/stdc++.h>
+u#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+static const double EPS = 1e-9;
+
+struct Point {
+    double x, y;
+};
+
+double dist(const Point&amp; a, const Point&amp; b){
+    return hypot(a.x - b.x, a.y - b.y);
+}
+
+double orient(const Point&amp; a, const Point&amp; b, const Point&amp; c){
+    return (b.x - a.x) * (c.y - a.y)
+         - (b.y - a.y) * (c.x - a.x);
+}
+
+bool onSegment(const Point&amp; a, const Point&amp; b, const Point&amp; p){
+    return fabs(orient(a,b,p)) &lt; EPS &amp;&amp;
+           min(a.x,b.x) - EPS &lt;= p.x &amp;&amp; p.x &lt;= max(a.x,b.x) + EPS &amp;&amp;
+           min(a.y,b.y) - EPS &lt;= p.y &amp;&amp; p.y &lt;= max(a.y,b.y) + EPS;
+}
+
+bool segmentsIntersect(const Point&amp; a, const Point&amp; b,
+                       const Point&amp; c, const Point&amp; d,
+                       Point* inter = nullptr)
+{
+    double o1 = orient(a,b,c), o2 = orient(a,b,d);
+    double o3 = orient(c,d,a), o4 = orient(c,d,b);
+
+    if(o1 * o2 &lt; 0 &amp;&amp; o3 * o4 &lt; 0){
+        if(inter){
+            double A1 = b.y - a.y, B1 = a.x - b.x, C1 = A1*a.x + B1*a.y;
+            double A2 = d.y - c.y, B2 = c.x - d.x, C2 = A2*c.x + B2*c.y;
+            double det = A1*B2 - A2*B1;
+            inter-&gt;x = (B2*C1 - B1*C2) / det;
+            inter-&gt;y = (A1*C2 - A2*C1) / det;
+        }
+        return true;
+    }
+
+    if(fabs(o1) &lt; EPS &amp;&amp; onSegment(a,b,c)){ if(inter) *inter = c; return true; }
+    if(fabs(o2) &lt; EPS &amp;&amp; onSegment(a,b,d)){ if(inter) *inter = d; return true; }
+    if(fabs(o3) &lt; EPS &amp;&amp; onSegment(c,d,a)){ if(inter) *inter = a; return true; }
+    if(fabs(o4) &lt; EPS &amp;&amp; onSegment(c,d,b)){ if(inter) *inter = b; return true; }
+
+    return false;
+}
+
+double polygonArea(const vector&lt;Point&gt;&amp; P){
+    double A = 0;
+    for(int i = 0; i &lt; (int)P.size(); i++){
+        const auto&amp; a = P[i];
+        const auto&amp; b = P[(i+1) % P.size()];
+        A += a.x*b.y - b.x*a.y;
+    }
+    return A / 2;
+}
+
+
+vector&lt;Point&gt; convexHull(const vector&lt;Point&gt;&amp; P){
+    int n = P.size(), l = 0;
+    for(int i = 1; i &lt; n; i++)
+        if(P[i].x &lt; P[l].x) l = i;
+
+    vector&lt;Point&gt; H;
+    for(int p = l, q;; p = q){
+        H.push_back(P[p]);
+        q = (p + 1) % n;
+        for(int r = 0; r &lt; n; r++)
+            if(orient(P[p], P[q], P[r]) &lt; 0)
+                q = r;
+        if(q == l) break;
+    }
+    return H;
+}
+
+
+bool entryExit(const Point&amp; a, const Point&amp; b,
+               const vector&lt;Point&gt;&amp; Q,
+               Point&amp; p, int&amp; ep,
+               Point&amp; q, int&amp; eq)
+{
+    struct Hit { double t; Point pt; int e; };
+    vector&lt;Hit&gt; hits;
+
+    for(int i = 0; i &lt; (int)Q.size(); i++){
+        Point ip;
+        if(segmentsIntersect(a,b,Q[i],Q[(i+1)%Q.size()],&amp;ip)){
+            double t = fabs(a.x-b.x) &gt; fabs(a.y-b.y)
+                     ? (ip.x-a.x)/(b.x-a.x)
+                     : (ip.y-a.y)/(b.y-a.y);
+            if(t &gt; EPS &amp;&amp; t &lt; 1 - EPS)
+                hits.push_back({t, ip, i});
+        }
+    }
+
+    if(hits.size() &lt; 2) return false;
+
+    sort(hits.begin(), hits.end(),
+         [](const Hit&amp; u, const Hit&amp; v){ return u.t &lt; v.t; });
+
+    p = hits.front().pt; ep = hits.front().e;
+    q = hits.back().pt;  eq = hits.back().e;
+    return true;
+}
+
+
+vector&lt;Point&gt; funnelShortestPath(const vector&lt;Point&gt;&amp; chain)
+{
+    vector&lt;Point&gt; left, right, path;
+    Point apex = chain[0];
+
+    left.push_back(apex);
+    right.push_back(apex);
+
+    for(int i = 1; i &lt; (int)chain.size(); i++){
+        Point p = chain[i];
+
+        if(orient(apex, right.back(), p) &lt;= 0){
+            while(right.size() &gt;= 2 &amp;&amp;
+                  orient(right[right.size()-2],
+                         right.back(), p) &lt;= 0)
+                right.pop_back();
+            right.push_back(p);
+        } else {
+            path.insert(path.end(), right.begin()+1, right.end());
+            apex = right.back();
+            left.clear(); right.clear();
+            left.push_back(apex);
+            right.push_back(apex);
+            i--; continue;
+        }
+
+        if(orient(apex, left.back(), p) &gt;= 0){
+            while(left.size() &gt;= 2 &amp;&amp;
+                  orient(left[left.size()-2],
+                         left.back(), p) &gt;= 0)
+                left.pop_back();
+            left.push_back(p);
+        } else {
+            path.insert(path.end(), left.begin()+1, left.end());
+            apex = left.back();
+            left.clear(); right.clear();
+            left.push_back(apex);
+            right.push_back(apex);
+            i--; continue;
+        }
+    }
+
+    path.push_back(chain.back());
+    return path;
+}
+
+
+vector&lt;Point&gt; relativeHull(const vector&lt;Point&gt;&amp; P,
+                           const vector&lt;Point&gt;&amp; Q)
+{
+    auto CH = convexHull(P);
+    vector&lt;Point&gt; RH;
+
+    for(int i = 0; i &lt; (int)CH.size(); i++){
+        Point a = CH[i], b = CH[(i+1)%CH.size()];
+
+        bool inside = true;
+        for(int j = 0; j &lt; (int)Q.size(); j++)
+            if(segmentsIntersect(a,b,Q[j],Q[(j+1)%Q.size()])){
+                inside = false; break;
+            }
+
+        if(inside){
+            RH.push_back(a);
+            continue;
+        }
+
+        Point p,q; int ep,eq;
+        entryExit(a,b,Q,p,ep,q,eq);
+
+        RH.push_back(a);
+    }
+    return RH;
+}
+
+
+</code></pre>
+
+    <h3>Resulting visualization</h3>
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="600"
+  height="400"
+  viewBox="100 100 550 450"
+  style="border:1px solid #cbd5e1"
+>
+  <polyline
+    fill="none"
+    stroke="blue"
+    stroke-width="2"
+    points="150,150 600,150 520,220 380,220 380,300 520,300 600,500 150,500 150,150"
+  />
+  <polyline
+    fill="none"
+    stroke="red"
+    stroke-width="2"
+    points="280,350 300,250 519,307 380,420 280,350"
+  />
+  <polyline
+    fill="none"
+    stroke="green"
+    stroke-width="2"
+    points="280,350 300,250 380,270.822 380,300 492.105,300 519,307 380,420 280,350"
+  />
+</svg>
+
+
+  </section>
+
+  <section>
+    <h2>Brief Overview of the Other Two Problems</h2>
+    <h3>Problem 2: Relative Hull When Q Is Placed Alongside P</h3>
+    <p>
+      In the second problem, the polygon <em>Q</em> does not contain <em>P</em>, but it intersects the
+      interior of the convex hull of <em>P</em>. The goal is to compute a weakly simple polygon of
+      minimum perimeter that contains <em>P</em>, avoids the interior of <em>Q</em>, and lies inside
+      <em>CH(P)</em>.
+    </p>
+    <p>
+      The algorithm distinguishes two cases: either <em>Q</em> lies inside a pocket of <em>P</em>, or it
+      does not. In both cases, the problem is reduced to computing one or more geodesic shortest
+      paths in a carefully defined simple polygon. As in the first problem, convex hull edges are
+      generated with Jarvis march and shortest paths are computed on-the-fly, yielding an
+      <strong>O(|P|² + |Q|²)</strong>-time algorithm using <strong>O(1)</strong> workspace.
+    </p>
+
+    <h3>Problem 3: Relative Hull of a Point Set Inside a Polygon</h3>
+    <p>
+      The third problem generalizes relative hulls to a set <em>S</em> of points located inside a
+      simple polygon <em>P</em>. The task is to compute a weakly simple polygon of minimum perimeter
+      that contains all points of <em>S</em> and lies entirely within <em>P</em>.
+    </p>
+    <p>
+      The solution follows Toussaint’s classic approach but is redesigned for constant workspace.
+      It computes a constrained Delaunay triangulation of <em>P</em> on-the-fly, traverses its dual
+      tree using an Eulerian tour, constructs local convex hulls of points within each triangle,
+      and connects them via geodesic shortest paths. Despite requiring significant recomputation,
+      the algorithm succeeds with <strong>O(|P|³ + |S|²)</strong> time and only <strong>O(1)</strong>
+      additional workspace.
+    </p>
+  </section>
+
+
+
+</main>
+
+<footer>
+  Based on Chhabra & Inkulu, <em>Constant Workspace Algorithms for Computing Relative Hulls in the Plane</em>.
+</footer>
+
+</body>
+</html>
